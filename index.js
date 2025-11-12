@@ -143,7 +143,7 @@ async function createButtonPanel(channel) {
       .setStyle(ButtonStyle.Primary)
       .setEmoji("🎟️"),
     new ButtonBuilder()
-      .setCustomId("prize_jasa")
+      .setCustomId("price_jasa")
       .setLabel("Price Jasa")
       .setStyle(ButtonStyle.Success)
       .setEmoji("🏆"),
@@ -679,9 +679,168 @@ async function main() {
     console.log("  !addrole <@role> - Add a staff role for tickets");
     console.log("  !removerole <@role> - Remove a staff role");
     console.log("  !listroles - List all configured staff roles");
-    console.log("  !setprizejasa <channel_id> - Set PRIZE JASA info channel");
+    console.log("  !setpricejasa <channel_id> - Set PRICE JASA info channel");
     console.log("  !setpricelock <channel_id> - Set PRICE LOCK info channel");
   });
+
+  const invitesFile = "./invites.json";
+const invitedByFile = "./invitedBy.json";
+let invitesCache = new Map();
+
+// 🔹 Fungsi load & save JSON
+function loadJSON(file) {
+  if (!existsSync(file)) writeFileSync(file, JSON.stringify({}));
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function saveJSON(file, data) {
+  writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+  client.on("ready", async () => {
+  console.log("✅ Invite Tracker aktif (auto add/remove)");
+  for (const guild of client.guilds.cache.values()) {
+    const invites = await guild.invites.fetch().catch(() => null);
+    if (invites)
+      invitesCache.set(guild.id, new Map(invites.map((i) => [i.code, i.uses])));
+  }
+});
+
+  client.on("guildMemberAdd", async (member) => {
+  const cachedInvites = invitesCache.get(member.guild.id);
+  const newInvites = await member.guild.invites.fetch().catch(() => null);
+  if (!cachedInvites || !newInvites) return;
+
+  const usedInvite = newInvites.find((inv) => cachedInvites.get(inv.code) < inv.uses);
+  invitesCache.set(member.guild.id, new Map(newInvites.map((i) => [i.code, i.uses])));
+
+  const invitesData = loadJSON(invitesFile);
+  const invitedByData = loadJSON(invitedByFile);
+  if (!invitesData[member.guild.id]) invitesData[member.guild.id] = {};
+  if (!invitedByData[member.guild.id]) invitedByData[member.guild.id] = {};
+
+  let inviterId = null;
+
+  if (usedInvite && usedInvite.inviter) {
+    inviterId = usedInvite.inviter.id;
+    if (!invitesData[member.guild.id][inviterId])
+      invitesData[member.guild.id][inviterId] = 0;
+    invitesData[member.guild.id][inviterId]++;
+    invitedByData[member.guild.id][member.id] = inviterId;
+  }
+
+  saveJSON(invitesFile, invitesData);
+  saveJSON(invitedByFile, invitedByData);
+
+    const configFile = "./config.json";
+  const config = existsSync(configFile)
+    ? JSON.parse(readFileSync(configFile, "utf8"))
+    : {};
+  const logChannelId = config.inviteLogChannelId;
+  const logChannel = logChannelId ? member.guild.channels.cache.get(logChannelId) : null;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2f3136)
+    .setDescription(
+      `👤 **${member.user.tag}** bergabung ke server!\n\n` +
+        `🧭 **Diundang oleh:** ${
+          inviterId ? `<@${inviterId}>` : "Tidak diketahui"
+        }\n📈 **Total Invite:** ${
+          inviterId ? invitesData[member.guild.id][inviterId] : "0"
+        }`
+    )
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+    .setFooter({ text: "📥 Invite Tracker Log" })
+    .setTimestamp();
+
+  if (logChannel) logChannel.send({ embeds: [embed] });
+});
+
+  client.on("guildMemberRemove", async (member) => {
+  const invitesData = loadJSON(invitesFile);
+  const invitedByData = loadJSON(invitedByFile);
+  if (!invitedByData[member.guild.id]) return;
+
+  const inviterId = invitedByData[member.guild.id][member.id];
+  if (!inviterId) return;
+  if (invitesData[member.guild.id]?.[inviterId] > 0) {
+    invitesData[member.guild.id][inviterId]--;
+    saveJSON(invitesFile, invitesData);
+  }
+
+    delete invitedByData[member.guild.id][member.id];
+  saveJSON(invitedByFile, invitedByData);
+
+    const configFile = "./config.json";
+  const config = existsSync(configFile)
+    ? JSON.parse(readFileSync(configFile, "utf8"))
+    : {};
+  const logChannelId = config.inviteLogChannelId;
+  const logChannel = logChannelId ? member.guild.channels.cache.get(logChannelId) : null;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2f3136)
+    .setDescription(
+      `👋 **${member.user.tag}** telah keluar dari server.\n\n` +
+        `📉 Invite milik <@${inviterId}> telah dikurangi.`
+    )
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+    .setFooter({ text: "📥 Invite Tracker Log" })
+    .setTimestamp();
+
+  if (logChannel) logChannel.send({ embeds: [embed] });
+});
+
+  client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+  if (message.content.startsWith("!setinvitelog ")) {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
+      return message.reply("❌ Hanya Admin yang dapat mengatur channel log.");
+
+    const channel = message.mentions.channels.first();
+    if (!channel)
+      return message.reply("❌ Gunakan format: `!setinvitelog #log-channel`");
+
+    const configFile = "./config.json";
+    const config = existsSync(configFile)
+      ? JSON.parse(readFileSync(configFile, "utf8"))
+      : {};
+
+    config.inviteLogChannelId = channel.id;
+    writeFileSync(configFile, JSON.stringify(config, null, 2));
+
+    return message.reply(`✅ Channel log invite diatur ke ${channel}`);
+  }
+
+    if (message.content.startsWith("!invites")) {
+    const member = message.mentions.members.first() || message.member;
+    const invitesData = loadJSON(invitesFile);
+    const count =
+      invitesData[message.guild.id]?.[member.id] ||
+      0;
+
+    return message.reply(
+      `📊 **${member.user.tag}** memiliki **${count}** total invite.`
+    );
+  }
+
+    if (message.content === "!invcheck") {
+    const invitesData = loadJSON(invitesFile);
+    const count =
+      invitesData[message.guild.id]?.[message.author.id] ||
+      0;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x2f3136)
+      .setDescription(
+        `🧾 **${message.author.username}**, kamu telah mengundang **${count}** member ke server ini.`
+      )
+      .setFooter({ text: "📥 Invite Tracker" })
+      .setTimestamp();
+
+    return message.reply({ embeds: [embed] });
+  }
+});
 
   client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
@@ -755,6 +914,9 @@ async function main() {
         `✅ Staff role <@&${roleId}> removed from ticket system.`,
       );
     }
+        if (message.content === "!ping") {
+  return message.reply("**INI GW ON YA AJG**");
+}
 
     if (message.content === "!listroles") {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
@@ -770,16 +932,16 @@ async function main() {
       return message.reply(`📋 **Configured Staff Roles:**\n${rolesList}`);
     }
 
-    if (message.content.startsWith("!setprizejasa ")) {
+    if (message.content.startsWith("!setpricejasa ")) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
         return message.reply(
           "❌ You need Administrator permission to use this command.",
         );
       const channelId = message.content.split(" ")[1].replface(/[<#>]/g, "");
       const config = loadConfig();
-      config.prizeJasaChannelId = channelId;
+      config.priceJasaChannelId = channelId;
       saveConfig(config);
-      return message.reply(`✅ PRIZE JASA channel set to <#${channelId}>`);
+      return message.reply(`✅ PRICE JASA channel set to <#${channelId}>`);
     }
 
     if (message.content.startsWith("!setpricelock ")) {
@@ -812,90 +974,98 @@ async function main() {
 
   const args = message.content.split(" ");
   if (args.length < 4)
-    return message.reply("❌ Usage: `!setreactionrole <message_id> <emoji> <@role>`");
+    return message.reply("❌ Usage: `!setreactionrole <emoji> <@role> <message>`");
 
-  const messageId = args[1];
-  const emoji = args[2];
-  const roleId = args[3].replace(/[<@&>]/g, "");
+  const emoji = args[1];
+  const roleId = args[2].replace(/[<@&>]/g, "");
+  const text = args.slice(3).join(" ");
+  const embed = new EmbedBuilder()
+    .setColor(0x2f3136)
+    .setTitle("🎭 Reaction Role")
+    .setDescription(`${text}\n\n> Tekan ${emoji} untuk mendapatkan role <@&${roleId}>`)
+    .setFooter({ text: "Reaction Role System" });
 
-  try {
-    const targetMessage = await message.channel.messages.fetch(messageId);
-    await targetMessage.react(emoji);
+  const sent = await message.channel.send({ embeds: [embed] });
+  await sent.react(emoji);
+  const file = "./reactionroles.json";
+  let data = {};
+  if (existsSync(file)) data = JSON.parse(readFileSync(file, "utf8"));
+  data[sent.id] = { emoji, roleId };
+  writeFileSync(file, JSON.stringify(data, null, 2));
 
-    const file = "./reactionroles.json";
-    let data = {};
-    if (existsSync(file)) {
-      data = JSON.parse(readFileSync(file, "utf8"));
-    }
-
-    if (!data[messageId]) data[messageId] = [];
-    data[messageId].push({ emoji, roleId });
-
-    writeFileSync(file, JSON.stringify(data, null, 2));
-
-    return message.reply(
-      `✅ Reaction role added!\n📩 Message ID: **${messageId}**\n😄 Emoji: ${emoji}\n🎭 Role: <@&${roleId}>`
-    );
-  } catch (err) {
-    console.error(err);
-    return message.reply("❌ Failed to set reaction role. Check message ID and permissions.");
-  }
+  return message.reply(`✅ Reaction role panel berhasil dibuat! ID: **${sent.id}**`);
 }
 
     if (message.content.startsWith("!addchat ")) {
   if (message.author.id !== message.guild.ownerId)
-    return message.reply("❌ Only the **server owner** can use this command.");
+    return message.reply("❌ Hanya **owner server** yang bisa pakai command ini.");
 
   const text = message.content.slice("!addchat ".length).trim();
   if (!text)
-    return message.reply("❌ Please provide text after the command.");
+    return message.reply("❌ Harap masukkan teks setelah command.");
 
+  const fs = require("fs");
   const chatFile = "./chat.json";
-  if (!existsSync(chatFile)) writeFileSync(chatFile, JSON.stringify({}));
+  if (!fs.existsSync(chatFile)) fs.writeFileSync(chatFile, JSON.stringify({}));
 
-  const data = JSON.parse(readFileSync(chatFile, "utf8"));
-  data[message.guild.id] = { text };
-  writeFileSync(chatFile, JSON.stringify(data, null, 2));
+  const data = JSON.parse(fs.readFileSync(chatFile, "utf8"));
+  const chatId = Date.now().toString();
+  data[chatId] = { text, guildId: message.guild.id };
+  fs.writeFileSync(chatFile, JSON.stringify(data, null, 2));
 
+  const { EmbedBuilder } = require("discord.js");
   const embed = new EmbedBuilder()
     .setDescription(text)
-    .setColor(0x2f3136) // sama seperti panel archive
-    .setFooter({ text: "Public Message" });
+    .setColor(0x2f3136)
+    .setFooter({ text: `Chat ID: ${chatId}` });
 
-  await message.channel.send({ embeds: [embed] });
-  return message.reply("✅ Message panel sent and saved successfully.");
+  const sentMsg = await message.channel.send({ embeds: [embed] });
+  return message.reply(`✅ Pesan panel berhasil dikirim dan disimpan!\n🆔 **Chat ID:** \`${chatId}\``);
 }
 
-if (message.content.startsWith("!editchat ")) {
+    if (message.content.startsWith("!editchat ")) {
   if (message.author.id !== message.guild.ownerId)
-    return message.reply("❌ Only the **server owner** can use this command.");
+    return message.reply("❌ Hanya **owner server** yang bisa pakai command ini.");
 
-  const newText = message.content.slice("!editchat ".length).trim();
-  if (!newText)
-    return message.reply("❌ Please provide the new text.");
+  const args = message.content.split(" ");
+  const chatId = args[1];
+  const newText = args.slice(2).join(" ");
 
-  const chatFile = "./chat.json";
-  if (!existsSync(chatFile))
-    return message.reply("❌ No previous message found. Use `!addchat` first.");
+  if (!chatId || !newText)
+    return message.reply("❌ Gunakan format: `!editchat <chat_id> <teks_baru>`");
 
-  const data = JSON.parse(readFileSync(chatFile, "utf8"));
-  if (!data[message.guild.id])
-    return message.reply("❌ No previous message found for this server. Use `!addchat` first.");
+      const chatFile = "./chat.json";
 
-  data[message.guild.id].text = newText;
-  writeFileSync(chatFile, JSON.stringify(data, null, 2));
+      if (!fs.existsSync(chatFile))
+    return message.reply("❌ Tidak ada file chat.json. Gunakan `!addchat` terlebih dahulu.");
 
-  const embed = new EmbedBuilder()
+  const data = JSON.parse(fs.readFileSync(chatFile, "utf8"));
+  const chatData = data[chatId];
+
+  if (!chatData)
+    return message.reply("❌ Chat ID tidak ditemukan. Cek ID yang benar dengan pesan sebelumnya.");
+
+  const channel = message.channel;
+ const fetched = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+if (fetched) {
+  const oldMsg = fetched.find(
+    (m) => m.embeds.length > 0 && m.embeds[0].footer?.text?.includes(chatId)
+  );
+  if (oldMsg) await oldMsg.delete().catch(() => {});
+}
+
+
+  const newEmbed = new EmbedBuilder()
     .setDescription(newText)
     .setColor(0x2f3136)
-    .setFooter({ text: "Public Message (Edited)" });
+    .setFooter({ text: `Chat ID: ${chatId}` });
 
-  await message.channel.send({ embeds: [embed] });
-  return message.reply("✅ Message panel updated successfully.");
-}
+  await message.channel.send({ embeds: [newEmbed] });
 
-    if (message.content === "!ping") {
-  return message.reply("**INI GW ON YA AJG**");
+  data[chatId].text = newText;
+  fs.writeFileSync(chatFile, JSON.stringify(data, null, 2));
+
+  return message.reply(`✅ Pesan dengan ID \`${chatId}\` berhasil diperbarui.`);
 }
 
     if (message.content === "!helpcmd") {
@@ -903,8 +1073,10 @@ if (message.content.startsWith("!editchat ")) {
 **🛠️ BOT COMMAND LIST**
 > Berikut daftar command dan fungsinya:
 
-📌 **Ticket System**
-\`!ping\` - buat cek bot o/off
+📡 **Utility**
+\`!ping\` — Mengecek apakah bot sedang online atau tidak.
+
+🎟️ **Ticket System**
 \`!setup\` — Membuat panel ticket.
 \`!setcategory <category_id>\` — Mengatur kategori ticket.
 \`!setlog <channel_id>\` — Mengatur log channel ticket.
@@ -920,16 +1092,20 @@ if (message.content.startsWith("!editchat ")) {
 🎭 **Reaction Role**
 \`!setreactionrole <message_id> <emoji> <@role>\` — Menambahkan reaction role otomatis.
 
-💬 **Chat Commands**
-\`!addchat <text>\` — Mengirim pesan publik (hanya owner).
-\`!editchat <new_text>\` — Mengedit pesan yang dikirim lewat !addchat.
+💬 **Chat Commands (Owner Only)**
+\`!addchat <text>\` — Mengirim pesan publik (embed panel).
+\`!editchat <new_text>\` — Mengedit pesan publik sebelumnya.
+
+📥 **Invite Tracker**
+\`!setinvitelog <#channel>\` — Mengatur channel log untuk invite tracker.
+\`!invcheck\` — Menampilkan total jumlah member yang kamu undang.
 
 ℹ️ **Informasi**
 \`!helpcmd\` — Menampilkan daftar semua command dan fungsinya.
 `;
 
   return message.reply(helpMessage);
-}
+  }
   });
 
   client.on("interactionCreate", async (interaction) => {
@@ -938,19 +1114,19 @@ if (message.content.startsWith("!editchat ")) {
         if (interaction.customId === "create_ticket") {
           return await handleCreateTicket(interaction);
         } else if (
-          interaction.customId === "prize_jasa" ||
+          interaction.customId === "price_jasa" ||
           interaction.customId === "price_jasa"
         ) {
           const config = loadConfig();
-          if (config.prizeJasaChannelId) {
+          if (config.priceJasaChannelId) {
             return interaction.reply({
-              content: `🏆 **PRICE JASA**\n\nFor service price information, please check: <#${config.prizeJasaChannelId}>`,
+              content: `🏆 **PRICE JASA**\n\nFor service price information, please check: <#${config.priceJasaChannelId}>`,
               ephemeral: true,
             });
           } else {
             return interaction.reply({
               content:
-                "🏆 **PRICE JASA**\n\nService price channel not configured yet.\nAsk an administrator to set it up with `!setprizejasa <channel_id>`",
+                "🏆 **PRICE JASA**\n\nService price channel not configured yet.\nAsk an administrator to set it up with `!setpricejasa <channel_id>`",
               ephemeral: true,
             });
           }
@@ -997,57 +1173,41 @@ if (message.content.startsWith("!editchat ")) {
     }
   });
 
-  // ✅ Auto Role Add / Remove via Reaction
+  // ==================================================
+// 🎭 REACTION ROLE EVENT LISTENER
+// ==================================================
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
-  if (!reaction.message.guild) return;
 
   const file = "./reactionroles.json";
   if (!existsSync(file)) return;
-
   const data = JSON.parse(readFileSync(file, "utf8"));
-  const entries = data[reaction.message.id];
-  if (!entries) return;
 
-  const match = entries.find(
-    (r) => r.emoji === reaction.emoji.name || r.emoji === reaction.emoji.toString()
-  );
-  if (!match) return;
+  const info = data[reaction.message.id];
+  if (!info) return;
+  if (reaction.emoji.name !== info.emoji) return;
 
-  const role = reaction.message.guild.roles.cache.get(match.roleId);
-  if (!role) return;
-
-  const member = await reaction.message.guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.add(role).catch(console.error);
-  console.log(`✅ Added role ${role.name} to ${user.tag}`);
+  const member = await reaction.message.guild.members.fetch(user.id);
+  if (!member.roles.cache.has(info.roleId)) {
+    await member.roles.add(info.roleId).catch(console.error);
+  }
 });
 
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
-  if (!reaction.message.guild) return;
 
   const file = "./reactionroles.json";
   if (!existsSync(file)) return;
-
   const data = JSON.parse(readFileSync(file, "utf8"));
-  const entries = data[reaction.message.id];
-  if (!entries) return;
 
-  const match = entries.find(
-    (r) => r.emoji === reaction.emoji.name || r.emoji === reaction.emoji.toString()
-  );
-  if (!match) return;
+  const info = data[reaction.message.id];
+  if (!info) return;
+  if (reaction.emoji.name !== info.emoji) return;
 
-  const role = reaction.message.guild.roles.cache.get(match.roleId);
-  if (!role) return;
-
-  const member = await reaction.message.guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.remove(role).catch(console.error);
-  console.log(`❌ Removed role ${role.name} from ${user.tag}`);
+  const member = await reaction.message.guild.members.fetch(user.id);
+  if (member.roles.cache.has(info.roleId)) {
+    await member.roles.remove(info.roleId).catch(console.error);
+  }
 });
 
   client.on("error", (error) => {

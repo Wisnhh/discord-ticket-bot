@@ -805,6 +805,131 @@ async function main() {
       saveConfig(config);
       return message.reply(`✅ Archive channel set to <#${channelId}>`);
     }
+
+    if (message.content.startsWith("!setreactionrole ")) {
+  if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
+    return message.reply("❌ You need Administrator permission to use this command.");
+
+  const args = message.content.split(" ");
+  if (args.length < 4)
+    return message.reply("❌ Usage: `!setreactionrole <message_id> <emoji> <@role>`");
+
+  const messageId = args[1];
+  const emoji = args[2];
+  const roleId = args[3].replace(/[<@&>]/g, "");
+
+  try {
+    const targetMessage = await message.channel.messages.fetch(messageId);
+    await targetMessage.react(emoji);
+
+    const file = "./reactionroles.json";
+    let data = {};
+    if (existsSync(file)) {
+      data = JSON.parse(readFileSync(file, "utf8"));
+    }
+
+    if (!data[messageId]) data[messageId] = [];
+    data[messageId].push({ emoji, roleId });
+
+    writeFileSync(file, JSON.stringify(data, null, 2));
+
+    return message.reply(
+      `✅ Reaction role added!\n📩 Message ID: **${messageId}**\n😄 Emoji: ${emoji}\n🎭 Role: <@&${roleId}>`
+    );
+  } catch (err) {
+    console.error(err);
+    return message.reply("❌ Failed to set reaction role. Check message ID and permissions.");
+  }
+}
+
+    if (message.content.startsWith("!addchat ")) {
+  if (message.author.id !== message.guild.ownerId)
+    return message.reply("❌ Only the **server owner** can use this command.");
+
+  const text = message.content.slice("!addchat ".length).trim();
+  if (!text)
+    return message.reply("❌ Please provide text after the command.");
+
+  const chatFile = "./chat.json";
+  if (!existsSync(chatFile)) writeFileSync(chatFile, JSON.stringify({}));
+
+  const data = JSON.parse(readFileSync(chatFile, "utf8"));
+  data[message.guild.id] = { text };
+  writeFileSync(chatFile, JSON.stringify(data, null, 2));
+
+  const embed = new EmbedBuilder()
+    .setDescription(text)
+    .setColor(0x2f3136) // sama seperti panel archive
+    .setFooter({ text: "Public Message" });
+
+  await message.channel.send({ embeds: [embed] });
+  return message.reply("✅ Message panel sent and saved successfully.");
+}
+
+if (message.content.startsWith("!editchat ")) {
+  if (message.author.id !== message.guild.ownerId)
+    return message.reply("❌ Only the **server owner** can use this command.");
+
+  const newText = message.content.slice("!editchat ".length).trim();
+  if (!newText)
+    return message.reply("❌ Please provide the new text.");
+
+  const chatFile = "./chat.json";
+  if (!existsSync(chatFile))
+    return message.reply("❌ No previous message found. Use `!addchat` first.");
+
+  const data = JSON.parse(readFileSync(chatFile, "utf8"));
+  if (!data[message.guild.id])
+    return message.reply("❌ No previous message found for this server. Use `!addchat` first.");
+
+  data[message.guild.id].text = newText;
+  writeFileSync(chatFile, JSON.stringify(data, null, 2));
+
+  const embed = new EmbedBuilder()
+    .setDescription(newText)
+    .setColor(0x2f3136)
+    .setFooter({ text: "Public Message (Edited)" });
+
+  await message.channel.send({ embeds: [embed] });
+  return message.reply("✅ Message panel updated successfully.");
+}
+
+    if (message.content === "!ping") {
+  return message.reply("**INI GW ON YA AJG**");
+}
+
+    if (message.content === "!helpcmd") {
+  const helpMessage = `
+**🛠️ BOT COMMAND LIST**
+> Berikut daftar command dan fungsinya:
+
+📌 **Ticket System**
+\`!ping\` - buat cek bot o/off
+\`!setup\` — Membuat panel ticket.
+\`!setcategory <category_id>\` — Mengatur kategori ticket.
+\`!setlog <channel_id>\` — Mengatur log channel ticket.
+\`!setarchive <channel_id>\` — Mengatur archive channel.
+\`!addrole <@role>\` — Menambahkan staff role.
+\`!removerole <@role>\` — Menghapus staff role.
+\`!listroles\` — Menampilkan staff role yang terdaftar.
+
+💰 **Channel Setting**
+\`!setpricejasa <#channel>\` — Mengatur channel Price Jasa.
+\`!setpricelock <#channel>\` — Mengatur channel Price Lock.
+
+🎭 **Reaction Role**
+\`!setreactionrole <message_id> <emoji> <@role>\` — Menambahkan reaction role otomatis.
+
+💬 **Chat Commands**
+\`!addchat <text>\` — Mengirim pesan publik (hanya owner).
+\`!editchat <new_text>\` — Mengedit pesan yang dikirim lewat !addchat.
+
+ℹ️ **Informasi**
+\`!helpcmd\` — Menampilkan daftar semua command dan fungsinya.
+`;
+
+  return message.reply(helpMessage);
+}
   });
 
   client.on("interactionCreate", async (interaction) => {
@@ -871,6 +996,59 @@ async function main() {
       }
     }
   });
+
+  // ✅ Auto Role Add / Remove via Reaction
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+  if (!reaction.message.guild) return;
+
+  const file = "./reactionroles.json";
+  if (!existsSync(file)) return;
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  const entries = data[reaction.message.id];
+  if (!entries) return;
+
+  const match = entries.find(
+    (r) => r.emoji === reaction.emoji.name || r.emoji === reaction.emoji.toString()
+  );
+  if (!match) return;
+
+  const role = reaction.message.guild.roles.cache.get(match.roleId);
+  if (!role) return;
+
+  const member = await reaction.message.guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+
+  await member.roles.add(role).catch(console.error);
+  console.log(`✅ Added role ${role.name} to ${user.tag}`);
+});
+
+client.on("messageReactionRemove", async (reaction, user) => {
+  if (user.bot) return;
+  if (!reaction.message.guild) return;
+
+  const file = "./reactionroles.json";
+  if (!existsSync(file)) return;
+
+  const data = JSON.parse(readFileSync(file, "utf8"));
+  const entries = data[reaction.message.id];
+  if (!entries) return;
+
+  const match = entries.find(
+    (r) => r.emoji === reaction.emoji.name || r.emoji === reaction.emoji.toString()
+  );
+  if (!match) return;
+
+  const role = reaction.message.guild.roles.cache.get(match.roleId);
+  if (!role) return;
+
+  const member = await reaction.message.guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+
+  await member.roles.remove(role).catch(console.error);
+  console.log(`❌ Removed role ${role.name} from ${user.tag}`);
+});
 
   client.on("error", (error) => {
     console.error("Discord client error:", error);

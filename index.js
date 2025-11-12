@@ -422,8 +422,6 @@ async function handleClaimTicket(interaction) {
   ticketData.claimedBy = interaction.user.id;
   ticketData.status = "in-progress";
   saveTickets(tickets);
-
-  // rename channel to ticket-<service>-<staffname>
   try {
     const serviceName = sanitizeChannelName(
       ticketData.description || "service",
@@ -453,18 +451,28 @@ async function handleClaimTicket(interaction) {
 }
 
 async function handleCloseTicket(interaction) {
-  const allowed = await isInteractionMemberStaff(interaction);
-  if (!allowed) {
+  const ticketData = tickets[interaction.channel.id];
+
+  if (!ticketData) {
     return interaction.reply({
-      content: "❌ You do not have permission to close.",
+      content: "❌ This is not a valid ticket channel.",
       ephemeral: true,
     });
   }
 
-  const ticketData = tickets[interaction.channel.id];
-  if (!ticketData) {
+  // Pastikan tiket sudah di-claim dulu
+  if (!ticketData.claimedBy) {
     return interaction.reply({
-      content: "❌ This is not a valid ticket channel.",
+      content: "❌ This ticket has not been claimed. Please claim it first before closing.",
+      ephemeral: true,
+    });
+  }
+
+  // Cek apakah user adalah claimer atau admin
+  const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+  if (ticketData.claimedBy !== interaction.user.id && !isAdmin) {
+    return interaction.reply({
+      content: `❌ Only the staff who claimed this ticket (<@${ticketData.claimedBy}>) or an Administrator can close it.`,
       ephemeral: true,
     });
   }
@@ -477,16 +485,13 @@ async function handleCloseTicket(interaction) {
     .setCustomId("close_reason")
     .setLabel("Resolution Notes")
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder("Describe how this ticket was resolved")
+    .setPlaceholder("Status Service")
     .setRequired(false)
     .setMaxLength(500);
 
   modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
   await interaction.showModal(modal);
 }
-
-/* ---------- Archive / Close Modal Submit ---------- */
-
 async function archiveTicketHistory(
   channel,
   ticketData,
@@ -498,7 +503,6 @@ async function archiveTicketHistory(
     const messages = [];
     let lastMessageId;
 
-    // Ambil semua pesan dalam tiket
     while (true) {
       const options = { limit: 100 };
       if (lastMessageId) options.before = lastMessageId;
@@ -511,11 +515,9 @@ async function archiveTicketHistory(
 
     messages.reverse();
 
-    // Buat Chat History
     let chatHistory = "";
     for (const msg of messages) {
-      // Lewatkan pesan sistem bot
-      if (msg.author.bot && !msg.webhookId) continue;
+    if (msg.author.bot && !msg.webhookId) continue;
 
       const timestamp = msg.createdAt.toLocaleString();
       const author = msg.author.username;
@@ -528,7 +530,6 @@ async function archiveTicketHistory(
 
     if (chatHistory.length === 0) chatHistory = "_No chat history available._";
 
-    // Buat embed utama (1 panel saja)
     const archiveEmbed = new EmbedBuilder()
       .setColor("#ff3333")
       .setTitle(`📜 Ticket-${ticketData.subject} - Archive`)
@@ -573,15 +574,6 @@ async function archiveTicketHistory(
 }
 
 async function handleCloseModalSubmit(interaction) {
-  // check permission again — modal submit could be invoked by someone else
-  const allowed = await isInteractionMemberStaff(interaction);
-  if (!allowed) {
-    return interaction.reply({
-      content: "❌ You do not have permission to close.",
-      ephemeral: true,
-    });
-  }
-
   await interaction.deferReply();
 
   const reason =
@@ -592,6 +584,21 @@ async function handleCloseModalSubmit(interaction) {
   if (!ticketData) {
     return await interaction.editReply({
       content: "❌ This is not a valid ticket channel.",
+    });
+  }
+
+  // Pastikan tiket sudah di-claim dulu
+  if (!ticketData.claimedBy) {
+    return await interaction.editReply({
+      content: "❌ This ticket has not been claimed yet. Please claim it first before closing.",
+    });
+  }
+
+  // Cek apakah user adalah claimer atau admin
+  const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+  if (ticketData.claimedBy !== interaction.user.id && !isAdmin) {
+    return await interaction.editReply({
+      content: `❌ Only the staff who claimed this ticket (<@${ticketData.claimedBy}>) or an Administrator can close it.`,
     });
   }
 
@@ -615,29 +622,15 @@ async function handleCloseModalSubmit(interaction) {
 
   const config = loadConfig();
   if (config.logChannelId) {
-    const logChannel = interaction.guild.channels.cache.get(
-      config.logChannelId,
-    );
+    const logChannel = interaction.guild.channels.cache.get(config.logChannelId);
     if (logChannel) {
       const logEmbed = new EmbedBuilder()
         .setColor("#FF0000")
         .setTitle("🔒 Ticket Closed")
         .addFields(
-          {
-            name: "Ticket",
-            value: `#${ticketData.ticketNumber}`,
-            inline: true,
-          },
-          {
-            name: "Channel",
-            value: `<#${interaction.channel.id}>`,
-            inline: true,
-          },
-          {
-            name: "Closed by",
-            value: `<@${interaction.user.id}>`,
-            inline: true,
-          },
+          { name: "Ticket", value: `#${ticketData.ticketNumber}`, inline: true },
+          { name: "Channel", value: `<#${interaction.channel.id}>`, inline: true },
+          { name: "Closed by", value: `<@${interaction.user.id}>`, inline: true },
           { name: "Resolution", value: reason },
         )
         .setTimestamp();
@@ -646,9 +639,7 @@ async function handleCloseModalSubmit(interaction) {
   }
 
   if (config.archiveChannelId) {
-    const archiveChannel = interaction.guild.channels.cache.get(
-      config.archiveChannelId,
-    );
+    const archiveChannel = interaction.guild.channels.cache.get(config.archiveChannelId);
     if (archiveChannel) {
       await archiveTicketHistory(
         interaction.channel,
@@ -670,8 +661,6 @@ async function handleCloseModalSubmit(interaction) {
     }
   }, 10000);
 }
-
-/* ---------- Main / Events ---------- */
 
 async function main() {
   console.log("🚀 Starting Discord Ticket Bot...");
@@ -697,7 +686,6 @@ async function main() {
   client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
 
-    // require admin permission for setup/config commands
     if (message.content === "!setup") {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
         return message.reply(

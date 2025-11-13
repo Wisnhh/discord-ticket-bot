@@ -1,7 +1,5 @@
 import keepAlive from "./keep_alive.js";
 keepAlive();
-
-// index.js
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled promise rejection:", error);
 });
@@ -88,12 +86,9 @@ if (Object.keys(tickets).length > 0) {
   ticketCounter = Math.max(0, ...ticketNumbers);
 }
 
-/* ---------- Helpers ---------- */
-
 async function isInteractionMemberStaff(interaction) {
   const config = loadConfig();
   if (!interaction.guild) return false;
-  // ensure member object
   let member = interaction.member;
   try {
     if (!member || !member.roles) {
@@ -110,17 +105,15 @@ async function isInteractionMemberStaff(interaction) {
 
 function sanitizeChannelName(input, fallback = "service") {
   if (!input) return fallback;
-  // Lowercase, replace spaces and invalid chars with hyphens, collapse multiple hyphens
   let name = String(input)
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove diacritics
-    .replace(/[^a-z0-9-_ ]+/g, "") // keep alnum, hyphen, underscore, space
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-z0-9-_ ]+/g, "") 
     .trim()
-    .replace(/\s+/g, "-") // spaces -> hyphen
-    .replace(/-+/g, "-"); // collapse multiple hyphens
+    .replace(/\s+/g, "-") 
+    .replace(/-+/g, "-"); 
   if (!name) name = fallback;
-  // Discord channel name max length ~100, keep safe margin
   if (name.length > 70) name = name.slice(0, 70);
   return name;
 }
@@ -265,15 +258,10 @@ async function handleRoleSelect(interaction) {
     ticketCategory = guild.channels.cache.get(config.ticketCategoryId);
   }
 
-  // build sanitized channel name: ticket-<service>-<player>
   const serviceName = sanitizeChannelName(description, "service");
-  // prefer nick if available
   let playerName = interaction.member?.nickname || interaction.user.username;
   playerName = sanitizeChannelName(playerName, "player");
-
   const channelName = `ticket-${serviceName}-${playerName}`;
-
-  // create channel
   const permissionOverwrites = [
     { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
     {
@@ -352,13 +340,12 @@ async function handleRoleSelect(interaction) {
     components: [actionRow],
   });
 
-  // store detailed ticket info
   tickets[ticketChannel.id] = {
     ticketNumber: ticketCounter,
     channelId: ticketChannel.id,
     userId: interaction.user.id,
     subject,
-    description, // store service text so rename works reliably
+    description,
     category,
     status: "open",
     createdAt: new Date().toISOString(),
@@ -391,11 +378,8 @@ async function handleRoleSelect(interaction) {
   });
 }
 
-/* ---------- Claim & Close (permission-restricted) ---------- */
-
 async function handleClaimTicket(interaction) {
   const config = loadConfig();
-  // ensure member fetched & check staff permission
   const allowed = await isInteractionMemberStaff(interaction);
   if (!allowed) {
     return interaction.reply({
@@ -434,7 +418,6 @@ async function handleClaimTicket(interaction) {
     const newName = `ticket-${serviceName}-${staffSan}`;
 
     await interaction.channel.setName(newName).catch((err) => {
-      // ignore rename error but log
       console.error("Failed to rename ticket channel on claim:", err);
     });
   } catch (err) {
@@ -460,7 +443,6 @@ async function handleCloseTicket(interaction) {
     });
   }
 
-  // Pastikan tiket sudah di-claim dulu
   if (!ticketData.claimedBy) {
     return interaction.reply({
       content: "❌ This ticket has not been claimed. Please claim it first before closing.",
@@ -468,7 +450,6 @@ async function handleCloseTicket(interaction) {
     });
   }
 
-  // Cek apakah user adalah claimer atau admin
   const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
   if (ticketData.claimedBy !== interaction.user.id && !isAdmin) {
     return interaction.reply({
@@ -587,14 +568,12 @@ async function handleCloseModalSubmit(interaction) {
     });
   }
 
-  // Pastikan tiket sudah di-claim dulu
   if (!ticketData.claimedBy) {
     return await interaction.editReply({
       content: "❌ This ticket has not been claimed yet. Please claim it first before closing.",
     });
   }
 
-  // Cek apakah user adalah claimer atau admin
   const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
   if (ticketData.claimedBy !== interaction.user.id && !isAdmin) {
     return await interaction.editReply({
@@ -687,7 +666,6 @@ async function main() {
 const invitedByFile = "./invitedBy.json";
 let invitesCache = new Map();
 
-// 🔹 Fungsi load & save JSON
 function loadJSON(file) {
   if (!existsSync(file)) writeFileSync(file, JSON.stringify({}));
   return JSON.parse(readFileSync(file, "utf8"));
@@ -1073,32 +1051,31 @@ if (fetched) {
 **🛠️ BOT COMMAND LIST**
 > Berikut daftar command dan fungsinya:
 
-📡 **Utility**
-\`!ping\` — Mengecek apakah bot sedang online atau tidak.
+📡 **General**
+\`!ping\` — Mengecek apakah bot sedang online.
 
-🎟️ **Ticket System**
+🎫 **Ticket System**
 \`!setup\` — Membuat panel ticket.
 \`!setcategory <category_id>\` — Mengatur kategori ticket.
 \`!setlog <channel_id>\` — Mengatur log channel ticket.
-\`!setarchive <channel_id>\` — Mengatur archive channel.
+\`!setarchive <channel_id>\` — Mengatur archive channel untuk ticket yang ditutup.
 \`!addrole <@role>\` — Menambahkan staff role.
 \`!removerole <@role>\` — Menghapus staff role.
-\`!listroles\` — Menampilkan staff role yang terdaftar.
+\`!listroles\` — Menampilkan daftar staff role yang terdaftar.
 
 💰 **Channel Setting**
-\`!setpricejasa <#channel>\` — Mengatur channel Price Jasa.
-\`!setpricelock <#channel>\` — Mengatur channel Price Lock.
-
-🎭 **Reaction Role**
-\`!setreactionrole <message_id> <emoji> <@role>\` — Menambahkan reaction role otomatis.
+\`!setpricejasa <#channel>\` — Mengatur channel informasi Price Jasa.
+\`!setpricelock <#channel>\` — Mengatur channel informasi Price Lock.
 
 💬 **Chat Commands (Owner Only)**
-\`!addchat <text>\` — Mengirim pesan publik (embed panel).
-\`!editchat <new_text>\` — Mengedit pesan publik sebelumnya.
+\`!addchat <text>\` — Mengirim pesan publik (hanya owner).
+\`!editchat <chat_id> <new_text>\` — Mengedit pesan publik berdasarkan ID (hanya owner).
 
-📥 **Invite Tracker**
-\`!setinvitelog <#channel>\` — Mengatur channel log untuk invite tracker.
-\`!invcheck\` — Menampilkan total jumlah member yang kamu undang.
+🎭 **Reaction Role**
+\`!setreactionrole <emoji> <@role> <text>\` — Membuat embed reaction role yang dikirim oleh bot.
+
+📊 **Invite Tracker**
+\`!invcheck\` — Melihat jumlah total invite kamu dan siapa yang kamu undang.
 
 ℹ️ **Informasi**
 \`!helpcmd\` — Menampilkan daftar semua command dan fungsinya.
@@ -1173,10 +1150,7 @@ if (fetched) {
     }
   });
 
-  // ==================================================
-// 🎭 REACTION ROLE EVENT LISTENER
-// ==================================================
-client.on("messageReactionAdd", async (reaction, user) => {
+  client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
 
   const file = "./reactionroles.json";

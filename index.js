@@ -717,15 +717,20 @@ function saveJSON(file, data) {
   const logChannelId = config.inviteLogChannelId;
   const logChannel = logChannelId ? member.guild.channels.cache.get(logChannelId) : null;
 
-  const embed = new EmbedBuilder()
-    .setColor(0x2f3136)
-    .setDescription(
-      `👤 **${member.user.tag}** bergabung ke server!\n\n` +
-        `🧭 **Diundang oleh:** ${
-          inviterId ? `<@${inviterId}>` : "Tidak diketahui"
-        }\n📈 **Total Invite:** ${
-          inviterId ? invitesData[member.guild.id][inviterId] : "0"
-        }`
+const embed = new EmbedBuilder()
+  .setColor(0x57F287)
+  .setAuthor({
+    name: "📥 Member Joined",
+    iconURL: member.user.displayAvatarURL({ dynamic: true })
+  })
+  .setDescription(
+    `👤 **${member.user.tag}** bergabung ke server!\n\n` +
+    `🧭 **Diundang oleh:** ${inviterId ? `<@${inviterId}>` : "Tidak diketahui"}\n` +
+    `📈 **Total Invite:** ${inviterId ? invitesData[member.guild.id][inviterId] : "0"}`
+  )
+  .setFooter({ text: `ID: ${member.id}` })
+  .setTimestamp();
+
     )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
     .setFooter({ text: "📥 Invite Tracker Log" })
@@ -756,17 +761,20 @@ function saveJSON(file, data) {
   const logChannelId = config.inviteLogChannelId;
   const logChannel = logChannelId ? member.guild.channels.cache.get(logChannelId) : null;
 
-  const embed = new EmbedBuilder()
-    .setColor(0x2f3136)
-    .setDescription(
-      `👋 **${member.user.tag}** telah keluar dari server.\n\n` +
-        `📉 Invite milik <@${inviterId}> telah dikurangi.`
-    )
-    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-    .setFooter({ text: "📥 Invite Tracker Log" })
-    .setTimestamp();
+const embed = new EmbedBuilder()
+  .setColor(0xED4245)
+  .setAuthor({
+    name: "📤 Member Left",
+    iconURL: member.user.displayAvatarURL({ dynamic: true })
+  })
+  .setDescription(
+    `👋 **${member.user.tag}** keluar dari server.\n\n` +
+    `📉 Invite milik <@${inviterId}> telah dikurangi.`
+  )
+  .setFooter({ text: `ID: ${member.id}` })
+  .setTimestamp();
 
-  if (logChannel) logChannel.send({ embeds: [embed] });
+    if (logChannel) logChannel.send({ embeds: [embed] });
 });
 
   client.on("messageCreate", async (message) => {
@@ -855,6 +863,21 @@ function saveJSON(file, data) {
       saveConfig(config);
       return message.reply(`✅ Log channel set to <#${channelId}>`);
     }
+
+    if (message.content.startsWith("!setinv ")) {
+  if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
+    return message.reply("❌ Hanya Admin yang dapat mengatur channel invite log.");
+
+  const channel = message.mentions.channels.first();
+  if (!channel)
+    return message.reply("❌ Gunakan format: `!setinv #channel`");
+
+  const config = loadConfig();
+  config.inviteLogChannelId = channel.id;
+  saveConfig(config);
+
+  return message.reply(`✅ Channel log invite diatur ke ${channel}`);
+}
 
     if (message.content.startsWith("!addrole ")) {
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator))
@@ -1075,6 +1098,7 @@ if (fetched) {
 \`!setreactionrole <emoji> <@role> <text>\` — Membuat embed reaction role yang dikirim oleh bot.
 
 📊 **Invite Tracker**
+\`!setinv #channel\` — Mengatur channel untuk log invite join/leave.
 \`!invcheck\` — Melihat jumlah total invite kamu dan siapa yang kamu undang.
 
 ℹ️ **Informasi**

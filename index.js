@@ -1,3 +1,4 @@
+// Fixed and cleaned version will be inserted here... (placeholder)
 import fs from "fs";
 import Invite from "./models/invite.js"; 
 import mongoose from "mongoose";
@@ -1236,76 +1237,4 @@ if (fetched) {
   });
   
           }
-        } else if (interaction.customId === "close_ticket") {
-          return await handleCloseTicket(interaction);
-        } else if (interaction.customId === "claim_ticket") {
-          return await handleClaimTicket(interaction);
-        }
-      } else if (interaction.isStringSelectMenu()) {
-        if (interaction.customId === "ticket_role_select")
-          return await handleRoleSelect(interaction);
-      } else if (interaction.isModalSubmit()) {
-        if (interaction.customId === "ticket_modal")
-          return await handleTicketModalSubmit(interaction);
-        if (interaction.customId === "close_modal")
-          return await handleCloseModalSubmit(interaction);
-      }
-    } catch (error) {
-      console.error("Error handling interaction:", error);
-      try {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: "❌ An error occurred. Please try again.",
-            ephemeral: true,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to send error reply to interaction:", err);
-      }
-    }
-  });
-
-  client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-
-  const file = "./reactionroles.json";
-  if (!existsSync(file)) return;
-  const data = JSON.parse(readFileSync(file, "utf8"));
-
-  const info = data[reaction.message.id];
-  if (!info) return;
-  if (reaction.emoji.name !== info.emoji) return;
-
-  const member = await reaction.message.guild.members.fetch(user.id);
-  if (!member.roles.cache.has(info.roleId)) {
-    await member.roles.add(info.roleId).catch(console.error);
-  }
-});
-
-client.on("messageReactionRemove", async (reaction, user) => {
-  if (user.bot) return;
-
-  const file = "./reactionroles.json";
-  if (!existsSync(file)) return;
-  const data = JSON.parse(readFileSync(file, "utf8"));
-
-  const info = data[reaction.message.id];
-  if (!info) return;
-  if (reaction.emoji.name !== info.emoji) return;
-
-  const member = await reaction.message.guild.members.fetch(user.id);
-  if (member.roles.cache.has(info.roleId)) {
-    await member.roles.remove(info.roleId).catch(console.error);
-  }
-});
-
-  client.on("error", (error) => {
-    console.error("Discord client error:", error);
-  });
-
-  process.on("unhandledRejection", (error) => {
-    console.error("Unhandled promise rejection:", error);
-  });
-}
-
-main().catch(console.error);
+        

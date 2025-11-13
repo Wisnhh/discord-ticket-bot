@@ -1175,11 +1175,7 @@ if (fetched) {
 Silakan cek: <#${config.priceJasaChannelId}>`,
               flags: 64,
             });
-          }
-          return interaction.reply({
-            content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
-            flags: 64,
-          });
+);
         
         }
 

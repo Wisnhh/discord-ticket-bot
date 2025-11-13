@@ -1,3 +1,4 @@
+import fs from "fs";
 import Invite from "./models/invite.js"; 
 import mongoose from "mongoose";
 import keepAlive from "./keep_alive.js";
@@ -970,7 +971,7 @@ const embed = new EmbedBuilder()
         return message.reply(
           "❌ You need Administrator permission to use this command.",
         );
-      const channelId = message.content.split(" ")[1].replface(/[<#>]/g, "");
+      const channelId = message.content.split(" ")[1].replace(/[<#>]/g, "");
       const config = loadConfig();
       config.priceJasaChannelId = channelId;
       saveConfig(config);

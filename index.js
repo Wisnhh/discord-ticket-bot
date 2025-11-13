@@ -691,6 +691,22 @@ client.once("ready", async () => {
   }
 });
 
+const invitesFile = "./invites.json";
+const invitedByFile = "./invitedBy.json";
+
+function loadJSON(path) {
+  if (!existsSync(path)) return {};
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveJSON(path, data) {
+  writeFileSync(path, JSON.stringify(data, null, 2));
+}
+
 client.on("guildMemberAdd", async (member) => {
   const cachedInvites = client.invitesCache.get(member.guild.id);
   const newInvites = await member.guild.invites.fetch();
@@ -1144,22 +1160,35 @@ if (fetched) {
         if (interaction.customId === "create_ticket") {
           return await handleCreateTicket(interaction);
         } else if (
-          interaction.customId === "price_jasa" ||
-          interaction.customId === "price_jasa"
-        ) {
-          const config = loadConfig();
-          if (config.priceJasaChannelId) {
-            return interaction.reply({
-              content: `🏆 **PRICE JASA**\n\nFor service price information, please check: <#${config.priceJasaChannelId}>`,
-              ephemeral: true,
-            });
-          } else {
-            return interaction.reply({
-              content:
-                "🏆 **PRICE JASA**\n\nService price channel not configured yet.\nAsk an administrator to set it up with `!setpricejasa <channel_id>`",
-              ephemeral: true,
-            });
-          }
+
+          if (interaction.customId === "price_jasa") {
+    const config = loadConfig();
+    if (config.priceJasaChannelId) {
+        return interaction.reply({
+            content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
+            ephemeral: true,
+        });
+    }
+    return interaction.reply({
+        content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
+        ephemeral: true,
+    });
+}
+
+if (interaction.customId === "price_lock") {
+    const config = loadConfig();
+    if (config.priceLockChannelId) {
+        return interaction.reply({
+            content: `🔒 **PRICE LOCK**\nSilakan cek: <#${config.priceLockChannelId}>`,
+            ephemeral: true,
+        });
+    }
+    return interaction.reply({
+        content: "Channel PRICE LOCK belum diset! Gunakan: `!setpricelock #channel`",
+        ephemeral: true,
+    });
+}
+
         } else if (interaction.customId === "price_lock") {
           const config = loadConfig();
           if (config.priceLockChannelId) {

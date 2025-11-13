@@ -1,0 +1,12 @@
+import mongoose from "mongoose";
+
+const invitedMemberSchema = new mongoose.Schema({
+  guildId: String,
+  memberId: { type: String, index: true },
+  inviterId: String,
+  joinedAt: Date
+}, { timestamps: true });
+
+invitedMemberSchema.index({ guildId: 1, memberId: 1 }, { unique: true });
+
+export default mongoose.models.InvitedMember || mongoose.model("InvitedMember", invitedMemberSchema);

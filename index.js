@@ -1,3 +1,4 @@
+import Invite from "./models/invite.js";
 import mongoose from "mongoose";
 import keepAlive from "./keep_alive.js";
 keepAlive();
@@ -689,6 +690,57 @@ function saveJSON(file, data) {
     const invites = await guild.invites.fetch().catch(() => null);
     if (invites)
       invitesCache.set(guild.id, new Map(invites.map((i) => [i.code, i.uses])));
+  }
+});
+
+  import { Client, GatewayIntentBits } from "discord.js";
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.GuildMembers,
+  ],
+});
+
+const invitesCache = new Map();
+
+client.once("ready", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  
+  client.guilds.cache.forEach(async (guild) => {
+    const invites = await guild.invites.fetch().catch(() => null);
+    if (invites) {
+      invitesCache.set(
+        guild.id,
+        new Map(invites.map(inv => [inv.code, inv.uses]))
+      );
+    }
+  });
+});
+
+client.on("guildMemberAdd", async (member) => {
+  const cachedInvites = invitesCache.get(member.guild.id);
+  const newInvites = await member.guild.invites.fetch();
+  invitesCache.set(member.guild.id, new Map(newInvites.map(inv => [inv.code, inv.uses])));
+
+  const usedInvite = newInvites.find(inv => cachedInvites && inv.uses > (cachedInvites.get(inv.code) || 0));
+
+  if (usedInvite) {
+    await Invite.findOneAndUpdate(
+      { code: usedInvite.code },
+      {
+        inviterId: usedInvite.inviter.id,
+        uses: usedInvite.uses,
+        guildId: member.guild.id,
+        lastUsedAt: new Date(),
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log(`👤 ${member.user.tag} joined using invite ${usedInvite.code} by ${usedInvite.inviter.tag}`);
+  } else {
+    console.log(`👤 ${member.user.tag} joined (invite unknown or vanity link)`);
   }
 });
 

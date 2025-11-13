@@ -1,4 +1,7 @@
-import Invite from "../models/invite.js";
+export default async (client, member) => {
+  console.log(`👋 Member join terdeteksi: ${member.user.tag}`);
+
+  import Invite from "../models/invite.js";
 
 export default async (client, member) => {
   const newInvites = await member.guild.invites.fetch();

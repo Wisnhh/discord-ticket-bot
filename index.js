@@ -1171,9 +1171,16 @@ if (fetched) {
           const config = loadConfig();
           if (config.priceJasaChannelId) {
             return interaction.reply({
-              content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
-              ephemeral: true,
+              content: `🏆 **PRICE JASA**
+Silakan cek: <#${config.priceJasaChannelId}>`,
+              flags: 64,
             });
+          }
+          return interaction.reply({
+            content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
+            flags: 64,
+          });
+        }
           }
           return interaction.reply({
             content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
@@ -1239,5 +1246,6 @@ if (fetched) {
           }
         
 
+
 // END OF main()
-main();          
+main();

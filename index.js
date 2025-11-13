@@ -693,23 +693,7 @@ function saveJSON(file, data) {
   }
 });
 
-const invitesCache = new Map();
-
-client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  
-  client.guilds.cache.forEach(async (guild) => {
-    const invites = await guild.invites.fetch().catch(() => null);
-    if (invites) {
-      invitesCache.set(
-        guild.id,
-        new Map(invites.map(inv => [inv.code, inv.uses]))
-      );
-    }
-  });
-});
-
-client.on("guildMemberAdd", async (member) => {
+  client.on("guildMemberAdd", async (member) => {
   const cachedInvites = invitesCache.get(member.guild.id);
   const newInvites = await member.guild.invites.fetch();
   invitesCache.set(member.guild.id, new Map(newInvites.map(inv => [inv.code, inv.uses])));

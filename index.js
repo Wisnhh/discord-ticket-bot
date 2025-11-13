@@ -671,9 +671,8 @@ async function main() {
     console.log("  !setpricelock <channel_id> - Set PRICE LOCK info channel");
   });
 
-  const invitesFile = "./invites.json";
+const invitesFile = "./invites.json";
 const invitedByFile = "./invitedBy.json";
-let invitesCache = new Map();
 
 function loadJSON(file) {
   if (!existsSync(file)) writeFileSync(file, JSON.stringify({}));

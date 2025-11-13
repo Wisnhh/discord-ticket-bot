@@ -1180,12 +1180,7 @@ Silakan cek: <#${config.priceJasaChannelId}>`,
             content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
             flags: 64,
           });
-        }
-          }
-          return interaction.reply({
-            content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
-            ephemeral: true,
-          });
+        
         }
 
         // PRICE LOCK BUTTON
@@ -1242,10 +1237,5 @@ Silakan cek: <#${config.priceJasaChannelId}>`,
       }
     }
   });
-  
-          }
-        
-
-
-// END OF main()
+} // END OF main()
 main();

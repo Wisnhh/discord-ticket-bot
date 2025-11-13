@@ -1,4 +1,4 @@
-import Invite from "./models/invite.js";
+import Invite from "./models/invite.js"; 
 import mongoose from "mongoose";
 import keepAlive from "./keep_alive.js";
 keepAlive();

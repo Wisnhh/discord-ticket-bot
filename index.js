@@ -133,8 +133,6 @@ function sanitizeChannelName(input, fallback = "service") {
   return name;
 }
 
-/* ---------- Panel / Modal / Ticket Creation ---------- */
-
 async function createButtonPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor("#5865F2")
@@ -1150,58 +1148,93 @@ if (fetched) {
 \`!helpcmd\` — Menampilkan daftar semua command dan fungsinya.
 `;
 
-  return message.reply(helpMessage);
-  }
+ return message.reply(helpMessage);
+    }
   });
 
+
+  // ========== INTERACTION HANDLER ===============
   client.on("interactionCreate", async (interaction) => {
     try {
+
+      // ================= BUTTON ==================
       if (interaction.isButton()) {
+
+        // CREATE TICKET
         if (interaction.customId === "create_ticket") {
           return await handleCreateTicket(interaction);
-        } else if (
+        }
 
-          if (interaction.customId === "price_jasa") {
-    const config = loadConfig();
-    if (config.priceJasaChannelId) {
-        return interaction.reply({
-            content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
+        // PRICE JASA BUTTON
+        if (interaction.customId === "price_jasa") {
+          const config = loadConfig();
+          if (config.priceJasaChannelId) {
+            return interaction.reply({
+              content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
+              ephemeral: true,
+            });
+          }
+          return interaction.reply({
+            content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
             ephemeral: true,
-        });
-    }
-    return interaction.reply({
-        content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
-        ephemeral: true,
-    });
-}
+          });
+        }
 
-if (interaction.customId === "price_lock") {
-    const config = loadConfig();
-    if (config.priceLockChannelId) {
-        return interaction.reply({
-            content: `🔒 **PRICE LOCK**\nSilakan cek: <#${config.priceLockChannelId}>`,
-            ephemeral: true,
-        });
-    }
-    return interaction.reply({
-        content: "Channel PRICE LOCK belum diset! Gunakan: `!setpricelock #channel`",
-        ephemeral: true,
-    });
-}
-
-        } else if (interaction.customId === "price_lock") {
+        // PRICE LOCK BUTTON
+        if (interaction.customId === "price_lock") {
           const config = loadConfig();
           if (config.priceLockChannelId) {
             return interaction.reply({
-              content: `🔒 **PRICE LOCK**\n\nFor price lock information, please check: <#${config.priceLockChannelId}>`,
+              content: `🔒 **PRICE LOCK**\nSilakan cek: <#${config.priceLockChannelId}>`,
               ephemeral: true,
             });
-          } else {
-            return interaction.reply({
-              content:
-                "🔒 **PRICE LOCK**\n\nPrice lock channel not configured yet.\nAsk an administrator to set it up with `!setpricelock <channel_id>`",
-              ephemeral: true,
-            });
+          }
+          return interaction.reply({
+            content: "Channel PRICE LOCK belum diset! Gunakan: `!setpricelock #channel`",
+            ephemeral: true,
+          });
+        }
+
+        if (interaction.customId === "claim_ticket") {
+          return await handleClaimTicket(interaction);
+        }
+
+        if (interaction.customId === "close_ticket") {
+          return await handleCloseTicket(interaction);
+        }
+      }
+
+      if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === "ticket_role_select") {
+          return await handleRoleSelect(interaction);
+        }
+      }
+
+      if (interaction.isModalSubmit()) {
+        if (interaction.customId === "ticket_modal") {
+          return await handleTicketModalSubmit(interaction);
+        }
+
+        if (interaction.customId === "close_modal") {
+          return await handleCloseModalSubmit(interaction);
+        }
+      }
+
+    } catch (error) {
+      console.error("Error handling interaction:", error);
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "❌ An error occurred. Please try again.",
+            ephemeral: true,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send error reply:", err);
+      }
+    }
+  });
+  
           }
         } else if (interaction.customId === "close_ticket") {
           return await handleCloseTicket(interaction);

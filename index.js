@@ -727,10 +727,6 @@ const embed = new EmbedBuilder()
     `👤 **${member.user.tag}** bergabung ke server!\n\n` +
     `🧭 **Diundang oleh:** ${inviterId ? `<@${inviterId}>` : "Tidak diketahui"}\n` +
     `📈 **Total Invite:** ${inviterId ? invitesData[member.guild.id][inviterId] : "0"}`
-  )
-  .setFooter({ text: `ID: ${member.id}` })
-  .setTimestamp();
-
     )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
     .setFooter({ text: "📥 Invite Tracker Log" })

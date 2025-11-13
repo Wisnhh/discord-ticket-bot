@@ -33,6 +33,8 @@ import {
 } from "discord.js";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
+const invitesCache = new Map();
+
 async function getDiscordClient() {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) {
@@ -49,6 +51,9 @@ async function getDiscordClient() {
       GatewayIntentBits.GuildMembers,
     ],
   });
+
+  client.invitesCache = invitesCache;
+
 
   await client.login(token);
   return client;
@@ -654,50 +659,48 @@ async function main() {
   console.log("🚀 Starting Discord Ticket Bot...");
   const client = await getDiscordClient();
 
-  client.once("ready", () => {
-    console.log(`✅ Logged in as ${client.user.tag}`);
-    console.log("📝 Bot is ready to manage tickets!");
-    console.log("\nAvailable commands:");
-    console.log("  !setup - Send the ticket panel to this channel");
-    console.log("  !setcategory <category_id> - Set the ticket category");
-    console.log("  !setlog <channel_id> - Set the log channel");
-    console.log(
-      "  !setarchive <channel_id> - Set the archive channel for closed tickets",
-    );
-    console.log("  !addrole <@role> - Add a staff role for tickets");
-    console.log("  !removerole <@role> - Remove a staff role");
-    console.log("  !listroles - List all configured staff roles");
-    console.log("  !setpricejasa <channel_id> - Set PRICE JASA info channel");
-    console.log("  !setpricelock <channel_id> - Set PRICE LOCK info channel");
-  });
+client.once("ready", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log("📝 Bot is ready to manage tickets!");
+  console.log("\nAvailable commands:");
+  console.log("  !setup - Send the ticket panel to this channel");
+  console.log("  !setcategory <category_id> - Set the ticket category");
+  console.log("  !setlog <channel_id> - Set the log channel");
+  console.log("  !setarchive <channel_id> - Set the archive channel for closed tickets");
+  console.log("  !addrole <@role> - Add a staff role for tickets");
+  console.log("  !removerole <@role> - Remove a staff role");
+  console.log("  !listroles - List all configured staff roles");
+  console.log("  !setpricejasa <channel_id> - Set PRICE JASA info channel");
+  console.log("  !setpricelock <channel_id> - Set PRICE LOCK info channel");
 
-const invitesFile = "./invites.json";
-const invitedByFile = "./invitedBy.json";
-
-function loadJSON(file) {
-  if (!existsSync(file)) writeFileSync(file, JSON.stringify({}));
-  return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function saveJSON(file, data) {
-  writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-  client.on("ready", async () => {
+  // Tambahan dari Invite Tracker
   console.log("✅ Invite Tracker aktif (auto add/remove)");
+
   for (const guild of client.guilds.cache.values()) {
-    const invites = await guild.invites.fetch().catch(() => null);
-    if (invites)
-      invitesCache.set(guild.id, new Map(invites.map((i) => [i.code, i.uses])));
+    try {
+      const invites = await guild.invites.fetch();
+      client.invitesCache.set(
+        guild.id,
+        new Map(invites.map((i) => [i.code, i.uses]))
+      );
+      console.log(`✅ Invite cache siap untuk ${guild.name}`);
+    } catch (err) {
+      console.error(`❌ Gagal fetch invite untuk ${guild.name}:`, err);
+    }
   }
 });
 
-  client.on("guildMemberAdd", async (member) => {
-  const cachedInvites = invitesCache.get(member.guild.id);
+client.on("guildMemberAdd", async (member) => {
+  const cachedInvites = client.invitesCache.get(member.guild.id);
   const newInvites = await member.guild.invites.fetch();
-  invitesCache.set(member.guild.id, new Map(newInvites.map(inv => [inv.code, inv.uses])));
+  client.invitesCache.set(
+    member.guild.id,
+    new Map(newInvites.map((inv) => [inv.code, inv.uses]))
+  );
 
-  const usedInvite = newInvites.find(inv => cachedInvites && inv.uses > (cachedInvites.get(inv.code) || 0));
+  const usedInvite = newInvites.find(
+    (inv) => cachedInvites && inv.uses > (cachedInvites.get(inv.code) || 0)
+  );
 
   if (usedInvite) {
     await Invite.findOneAndUpdate(

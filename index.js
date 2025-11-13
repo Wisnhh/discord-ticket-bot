@@ -693,16 +693,6 @@ function saveJSON(file, data) {
   }
 });
 
-  import { Client, GatewayIntentBits } from "discord.js";
-
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildInvites,
-    GatewayIntentBits.GuildMembers,
-  ],
-});
-
 const invitesCache = new Map();
 
 client.once("ready", async () => {
@@ -1060,8 +1050,6 @@ const embed = new EmbedBuilder()
   const text = message.content.slice("!addchat ".length).trim();
   if (!text)
     return message.reply("❌ Harap masukkan teks setelah command.");
-
-  const fs = require("fs");
   const chatFile = "./chat.json";
   if (!fs.existsSync(chatFile)) fs.writeFileSync(chatFile, JSON.stringify({}));
 
@@ -1069,8 +1057,6 @@ const embed = new EmbedBuilder()
   const chatId = Date.now().toString();
   data[chatId] = { text, guildId: message.guild.id };
   fs.writeFileSync(chatFile, JSON.stringify(data, null, 2));
-
-  const { EmbedBuilder } = require("discord.js");
   const embed = new EmbedBuilder()
     .setDescription(text)
     .setColor(0x2f3136)

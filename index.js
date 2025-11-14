@@ -1165,16 +1165,21 @@ if (fetched) {
         if (interaction.customId === "create_ticket") {
           return await handleCreateTicket(interaction);
         }
-
         // PRICE JASA BUTTON
-        if (interaction.customId === "price_jasa") {
-          const config = loadConfig();
-          if (config.priceJasaChannelId) {
-            return interaction.reply({
-              content: `🏆 **PRICE JASA**
+if (interaction.customId === "price_jasa") {
+  const config = loadConfig();
+  if (config.priceJasaChannelId) {
+    return interaction.reply({
+      content: `🏆 **PRICE JASA**
 Silakan cek: <#${config.priceJasaChannelId}>`,
-              flags: 64,
-            });
+      flags: 64, // ephemeral replacement
+    });
+  }
+  return interaction.reply({
+    content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
+    flags: 64,
+  });
+}
 );
         
         }

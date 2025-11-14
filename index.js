@@ -801,6 +801,3 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 });
-} // END OF main()
-
-main();

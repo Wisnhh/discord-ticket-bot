@@ -718,88 +718,94 @@ async function handleCloseModalSubmit(interaction) {
   }, 10000);
 }
 // ======================= INTERACTION HANDLER ==========================
-client.on("interactionCreate", async (interaction) => {
-  try {
-    // ================= BUTTON ==================
-    if (interaction.isButton()) {
+async function main() {
+  const client = await getDiscordClient();
 
-      // CREATE TICKET
-      if (interaction.customId === "create_ticket") {
-        return await handleCreateTicket(interaction);
-      }
+  client.on("interactionCreate", async (interaction) => {
+    try {
+      // ================= BUTTON ==================
+      if (interaction.isButton()) {
 
-      // PRICE JASA BUTTON
-      if (interaction.customId === "price_jasa") {
-        const config = loadConfig();
-        if (config.priceJasaChannelId) {
-          return interaction.reply({
-            content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
-            flags: 64, // ephemeral replacement
-          });
+        // CREATE TICKET
+        if (interaction.customId === "create_ticket") {
+          return await handleCreateTicket(interaction);
         }
-        return interaction.reply({
-          content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
-          flags: 64,
-        });
-      }
 
-      // PRICE LOCK BUTTON
-      if (interaction.customId === "price_lock") {
-        const config = loadConfig();
-        if (config.priceLockChannelId) {
+        // PRICE JASA BUTTON
+        if (interaction.customId === "price_jasa") {
+          const config = loadConfig();
+          if (config.priceJasaChannelId) {
+            return interaction.reply({
+              content: `🏆 **PRICE JASA**\nSilakan cek: <#${config.priceJasaChannelId}>`,
+              flags: 64,
+            });
+          }
           return interaction.reply({
-            content: `🔒 **PRICE LOCK**\nSilakan cek: <#${config.priceLockChannelId}>`,
+            content: "Channel PRICE JASA belum diset! Gunakan: `!setpricejasa #channel`",
             flags: 64,
           });
         }
-        return interaction.reply({
-          content: "Channel PRICE LOCK belum diset! Gunakan: `!setpricelock #channel`",
-          flags: 64,
-        });
+
+        // PRICE LOCK BUTTON
+        if (interaction.customId === "price_lock") {
+          const config = loadConfig();
+          if (config.priceLockChannelId) {
+            return interaction.reply({
+              content: `🔒 **PRICE LOCK**\nSilakan cek: <#${config.priceLockChannelId}>`,
+              flags: 64,
+            });
+          }
+          return interaction.reply({
+            content: "Channel PRICE LOCK belum diset! Gunakan: `!setpricelock #channel`",
+            flags: 64,
+          });
+        }
+
+        // CLAIM TICKET
+        if (interaction.customId === "claim_ticket") {
+          return await handleClaimTicket(interaction);
+        }
+
+        // CLOSE TICKET
+        if (interaction.customId === "close_ticket") {
+          return await handleCloseTicket(interaction);
+        }
       }
 
-      // CLAIM TICKET
-      if (interaction.customId === "claim_ticket") {
-        return await handleClaimTicket(interaction);
+      // ================= SELECT MENU ==================
+      if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === "ticket_role_select") {
+          return await handleRoleSelect(interaction);
+        }
       }
 
-      // CLOSE TICKET
-      if (interaction.customId === "close_ticket") {
-        return await handleCloseTicket(interaction);
+      // ================= MODAL SUBMIT ==================
+      if (interaction.isModalSubmit()) {
+        if (interaction.customId === "ticket_modal") {
+          return await handleTicketModalSubmit(interaction);
+        }
+        if (interaction.customId === "close_modal") {
+          return await handleCloseModalSubmit(interaction);
+        }
+      }
+
+    } catch (error) {
+      console.error("Error handling interaction:", error);
+
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: "❌ An error occurred. Please try again.",
+            flags: 64,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send error reply:", err);
       }
     }
+  });
 
-    // ================= SELECT MENU ==================
-    if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === "ticket_role_select") {
-        return await handleRoleSelect(interaction);
-      }
-    }
+  console.log("✅ Bot Ready!");
+}
 
-    // ================= MODAL SUBMIT ==================
-    if (interaction.isModalSubmit()) {
-      if (interaction.customId === "ticket_modal") {
-        return await handleTicketModalSubmit(interaction);
-      }
-      if (interaction.customId === "close_modal") {
-        return await handleCloseModalSubmit(interaction);
-      }
-    }
-
-  } catch (error) {
-    console.error("Error handling interaction:", error);
-
-    try {
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "❌ An error occurred. Please try again.",
-          flags: 64,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to send error reply:", err);
-    }
-  }
-});
 main();
-
